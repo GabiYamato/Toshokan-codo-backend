@@ -1,0 +1,27 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.env*
+.venv/
+venv/
+.Python
+.pytest_cache/
+*.log
+
+# Node artifacts
+node_modules/
+.npm/
+
+# Build outputs
+outputs/
+generated_app/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

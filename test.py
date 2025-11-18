@@ -1,17 +1,53 @@
 import json
 import os
+import re
+from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency
+    load_dotenv = None
 import google.generativeai as genai
 
+def _load_env_file() -> None:
+    """Load environment variables from .env when possible."""
+    env_path = Path(".env")
+
+    if load_dotenv:
+        load_dotenv()
+        return
+
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
 class ModuleBasedAppBuilder:
-    def __init__(self, api_key: str, modules_path: str = "modules.json"):
+    def __init__(self, api_key: Optional[str] = None, modules_path: str = "modules.json"):
         """Initialize the app builder with Gemini API and load modules."""
-        genai.configure(api_key=api_key)
+        _load_env_file()
+
+        resolved_api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not resolved_api_key:
+            raise ValueError(
+                "Missing Gemini API key. Provide it via constructor or set GEMINI_API_KEY/GOOGLE_API_KEY environment variable."
+            )
+
+        genai.configure(api_key=resolved_api_key)
         
         # Configure Gemini 2.0 Flash
         self.model = genai.GenerativeModel(
-            'gemini-2.0-flash-exp',
+            'gemini-2.0-flash',
             generation_config={
                 "temperature": 0.2,
                 "top_p": 0.95,
@@ -24,8 +60,9 @@ class ModuleBasedAppBuilder:
         with open(modules_path, 'r') as f:
             self.modules = json.load(f)
         
-        self.output_dir = Path("generated_app")
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_root = Path("outputs")
+        self.output_root.mkdir(exist_ok=True)
+        self.output_dir: Optional[Path] = None
     
     def get_modules_context(self) -> str:
         """Create a context string with all available modules."""
@@ -182,6 +219,8 @@ Return ONLY the Python code, no explanations.
     
     def create_file(self, filename: str, content: str):
         """Create a file with the generated content."""
+        if not self.output_dir:
+            raise RuntimeError("Output directory not prepared. Call build_app() first.")
         filepath = self.output_dir / filename
         
         # Create subdirectories if needed
@@ -232,10 +271,32 @@ if __name__ == "__main__":
 """
         self.create_file("main.py", main_content)
     
+    def _slugify_prompt(self, user_prompt: str) -> str:
+        """Convert the user prompt to a filesystem-friendly slug."""
+        slug = re.sub(r"[^a-z0-9]+", "-", user_prompt.lower()).strip('-')
+        if not slug:
+            return "app"
+        return slug[:40]
+
+    def _prepare_output_dir(self, user_prompt: str) -> Path:
+        """Create a unique output directory for the generated app."""
+        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        slug = self._slugify_prompt(user_prompt)
+        base_name = f"{timestamp}-{slug}" if slug != "app" else f"{timestamp}-app"
+        candidate = self.output_root / base_name
+        counter = 1
+        while candidate.exists():
+            counter += 1
+            candidate = self.output_root / f"{base_name}-{counter}"
+        candidate.mkdir(parents=True, exist_ok=False)
+        return candidate
+
     def build_app(self, user_prompt: str):
         """Main method to build the app from user prompt."""
         
         print(f"\n🚀 Building app from prompt: '{user_prompt}'\n")
+        self.output_dir = self._prepare_output_dir(user_prompt)
+        print(f"📁 Output directory: {self.output_dir}")
         
         # Step 1: Analyze prompt and map to modules
         print("📊 Analyzing requirements...")
@@ -243,6 +304,21 @@ if __name__ == "__main__":
         
         print(f"\n✓ Found {len(analysis['required_modules'])} required modules")
         print(f"✓ Will create {len(analysis['file_structure'])} files\n")
+        
+        # Check for modules requiring setup
+        setup_required_modules = []
+        for module_info in analysis['required_modules']:
+            module_id = module_info['module_id']
+            module = next((m for m in self.modules if m['module_id'] == module_id), None)
+            if module and module.get('setup_required'):
+                setup_required_modules.append(module['module_name'])
+        
+        if setup_required_modules:
+            print("⚠️  SETUP REQUIRED:")
+            print("   The following modules need external configuration:")
+            for mod_name in setup_required_modules:
+                print(f"   - {mod_name}")
+            print("   Check the generated README.md for detailed setup instructions.\n")
         
         # Step 2: Generate each file
         for file_info in analysis['file_structure']:
@@ -272,8 +348,13 @@ if __name__ == "__main__":
         self.generate_readme(user_prompt, analysis)
         
         print(f"\n✅ App generated successfully in '{self.output_dir}' directory!")
+        
+        if setup_required_modules:
+            print("\n⚠️  IMPORTANT: External setup required!")
+            print(f"   Read {self.output_dir}/README.md for configuration steps.\n")
+        
         print("\nNext steps:")
-        print("1. cd generated_app")
+        print(f"1. cd {self.output_dir}")
         print("2. pip install -r requirements.txt")
         print("3. python main.py")
     
@@ -300,6 +381,29 @@ if __name__ == "__main__":
             for m in analysis['required_modules']
         ])
         
+        # Collect setup instructions from modules
+        setup_sections = []
+        for module_info in analysis['required_modules']:
+            module_id = module_info['module_id']
+            module = next((m for m in self.modules if m['module_id'] == module_id), None)
+            
+            if module and module.get('setup_required'):
+                setup_sections.append(f"""
+### {module['module_name']} Setup
+
+{module.get('setup_instructions', 'No specific setup instructions provided.')}
+""")
+        
+        setup_content = ""
+        if setup_sections:
+            setup_content = f"""
+## Prerequisites & External Setup
+
+⚠️ **IMPORTANT:** Some modules require external service configuration before the app will work.
+
+{''.join(setup_sections)}
+"""
+        
         readme_content = f"""# Generated Backend App
 
 ## User Request
@@ -315,7 +419,7 @@ if __name__ == "__main__":
 
 ### File Structure
 {chr(10).join([f"- `{f['filename']}`: {f['purpose']}" for f in analysis['file_structure']])}
-
+{setup_content}
 ## Setup
 
 1. Install dependencies:
