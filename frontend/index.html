@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Toshokan - AI Code Generator</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Chat Panel */
+        .chat-panel {
+            width: 400px;
+            background: #252526;
+            border-right: 1px solid #3c3c3c;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 16px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3c3c3c;
+        }
+
+        .chat-header h2 {
+            font-size: 18px;
+            color: #cccccc;
+            margin-bottom: 8px;
+        }
+
+        .module-count {
+            font-size: 12px;
+            color: #858585;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-user {
+            background: #0e639c;
+            padding: 12px;
+            border-radius: 8px;
+            margin-left: 40px;
+        }
+
+        .message-assistant {
+            background: #2d2d30;
+            padding: 12px;
+            border-radius: 8px;
+            margin-right: 40px;
+            border: 1px solid #3c3c3c;
+        }
+
+        .message-system {
+            background: #1a472a;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 3px solid #4ec9b0;
+            font-size: 14px;
+        }
+
+        .chat-input {
+            padding: 16px;
+            border-top: 1px solid #3c3c3c;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 8px;
+        }
+
+        #promptInput {
+            flex: 1;
+            padding: 12px;
+            background: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-size: 14px;
+        }
+
+        #promptInput:focus {
+            outline: none;
+            border-color: #0e639c;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        /* IDE Panel */
+        .ide-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ide-header {
+            padding: 12px 16px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3c3c3c;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ide-title {
+            font-size: 14px;
+            color: #cccccc;
+        }
+
+        .ide-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ide-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* File Explorer */
+        .file-explorer {
+            width: 250px;
+            background: #252526;
+            border-right: 1px solid #3c3c3c;
+            overflow-y: auto;
+        }
+
+        .explorer-header {
+            padding: 8px 12px;
+            background: #2d2d30;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #858585;
+            font-weight: 600;
+        }
+
+        .file-tree {
+            padding: 8px 0;
+        }
+
+        .file-item {
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-item:hover {
+            background: #2a2d2e;
+        }
+
+        .file-item.active {
+            background: #37373d;
+            border-left: 2px solid #0e639c;
+        }
+
+        .file-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        /* Code Editor */
+        .code-editor {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-tabs {
+            display: flex;
+            background: #2d2d30;
+            border-bottom: 1px solid #3c3c3c;
+            overflow-x: auto;
+        }
+
+        .editor-tab {
+            padding: 8px 16px;
+            background: #2d2d30;
+            border-right: 1px solid #3c3c3c;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .editor-tab.active {
+            background: #1e1e1e;
+        }
+
+        .editor-content {
+            flex: 1;
+            overflow: auto;
+            background: #1e1e1e;
+        }
+
+        #codeView {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            border: none;
+            resize: none;
+            white-space: pre;
+            overflow: auto;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #858585;
+        }
+
+        .spinner {
+            border: 3px solid #3c3c3c;
+            border-top: 3px solid #0e639c;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #858585;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: #cccccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Chat Panel -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <h2>🏗️ Toshokan Builder</h2>
+                <div class="module-count" id="moduleCount">Loading modules...</div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message message-system">
+                    Welcome! Describe the app you want to build and I'll generate it using available modules.
+                </div>
+            </div>
+            <div class="chat-input">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="promptInput" 
+                        placeholder="Describe your app (e.g., 'landing page with hero and gallery')..."
+                        onkeypress="handleKeyPress(event)"
+                    >
+                    <button onclick="buildApp()" id="buildBtn">Build</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- IDE Panel -->
+        <div class="ide-panel">
+            <div class="ide-header">
+                <div class="ide-title" id="ideTitle">Generated Code</div>
+                <div class="ide-actions">
+                    <button onclick="downloadAll()" id="downloadBtn" style="display: none;">Download All</button>
+                </div>
+            </div>
+            <div class="ide-content">
+                <div class="file-explorer">
+                    <div class="explorer-header">Files</div>
+                    <div class="file-tree" id="fileTree">
+                        <div class="empty-state">
+                            <p>No files yet</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="code-editor">
+                    <div class="editor-tabs" id="editorTabs"></div>
+                    <div class="editor-content">
+                        <textarea id="codeView" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentSession = null;
+        let currentFiles = [];
+        let openTabs = [];
+        let activeTab = null;
+
+        // Load modules count
+        async function loadModules() {
+            try {
+                const response = await fetch(`${API_BASE}/api/modules`);
+                const data = await response.json();
+                document.getElementById('moduleCount').textContent = 
+                    `${data.count} modules available`;
+            } catch (error) {
+                console.error('Error loading modules:', error);
+            }
+        }
+
+        // Add message to chat
+        function addMessage(role, content) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${role}`;
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Handle enter key
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                buildApp();
+            }
+        }
+
+        // Build app
+        async function buildApp() {
+            const promptInput = document.getElementById('promptInput');
+            const prompt = promptInput.value.trim();
+            
+            if (!prompt) return;
+
+            const buildBtn = document.getElementById('buildBtn');
+            buildBtn.disabled = true;
+            buildBtn.textContent = 'Building...';
+
+            addMessage('user', prompt);
+            promptInput.value = '';
+
+            try {
+                addMessage('system', '🔨 Starting build process...');
+
+                const response = await fetch(`${API_BASE}/api/build`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentSession = data.session_id;
+                    currentFiles = data.files;
+
+                    addMessage('assistant', 
+                        `✅ Successfully generated ${data.files.length} files in ${data.output_dir}`);
+
+                    // Load file tree
+                    loadFileTree(data.files, data.session_id);
+                    
+                    document.getElementById('downloadBtn').style.display = 'block';
+                } else {
+                    addMessage('system', `❌ Error: ${data.detail}`);
+                }
+            } catch (error) {
+                addMessage('system', `❌ Error: ${error.message}`);
+            } finally {
+                buildBtn.disabled = false;
+                buildBtn.textContent = 'Build';
+            }
+        }
+
+        // Load file tree
+        function loadFileTree(files, sessionId) {
+            const fileTree = document.getElementById('fileTree');
+            fileTree.innerHTML = '';
+
+            files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span class="file-icon">📄</span>
+                    <span>${file.path}</span>
+                `;
+                fileItem.onclick = () => loadFile(file.path, sessionId);
+                fileTree.appendChild(fileItem);
+            });
+        }
+
+        // Load file content
+        async function loadFile(filePath, sessionId) {
+            try {
+                const response = await fetch(
+                    `${API_BASE}/api/file/${sessionId}/${filePath}`
+                );
+                const data = await response.json();
+
+                if (response.ok) {
+                    openTab(filePath, data.content);
+                    
+                    // Update active file in tree
+                    document.querySelectorAll('.file-item').forEach(item => {
+                        item.classList.remove('active');
+                        if (item.textContent.trim() === filePath) {
+                            item.classList.add('active');
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading file:', error);
+            }
+        }
+
+        // Open tab
+        function openTab(filePath, content) {
+            if (!openTabs.find(tab => tab.path === filePath)) {
+                openTabs.push({ path: filePath, content });
+            }
+
+            activeTab = filePath;
+            renderTabs();
+            document.getElementById('codeView').value = content;
+            document.getElementById('ideTitle').textContent = filePath;
+        }
+
+        // Render tabs
+        function renderTabs() {
+            const tabsDiv = document.getElementById('editorTabs');
+            tabsDiv.innerHTML = '';
+
+            openTabs.forEach(tab => {
+                const tabDiv = document.createElement('div');
+                tabDiv.className = `editor-tab ${tab.path === activeTab ? 'active' : ''}`;
+                tabDiv.textContent = tab.path.split('/').pop();
+                tabDiv.onclick = () => switchTab(tab.path);
+                tabsDiv.appendChild(tabDiv);
+            });
+        }
+
+        // Switch tab
+        function switchTab(filePath) {
+            const tab = openTabs.find(t => t.path === filePath);
+            if (tab) {
+                activeTab = filePath;
+                document.getElementById('codeView').value = tab.content;
+                document.getElementById('ideTitle').textContent = filePath;
+                renderTabs();
+            }
+        }
+
+        // Download all files
+        function downloadAll() {
+            if (currentSession) {
+                addMessage('system', 
+                    `📦 Files are located in: outputs/${currentSession}/`);
+            }
+        }
+
+        // Initialize
+        loadModules();
+    </script>
+</body>
+</html>
