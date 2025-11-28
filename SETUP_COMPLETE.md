@@ -23,6 +23,7 @@
 
 ### 2. Backend API (FastAPI)
 - **Location**: `app.py`
+
 - **Technology**: FastAPI + Python 3
 - **Port**: 8000
 
